@@ -50,3 +50,20 @@ def register():
     db.session.commit()
 
     return jsonify({"msg": "usuario listo"})
+
+
+@api.route('/login', methods=["POST"])
+def login():
+
+    request_body = request.get_json()
+
+    user = User.query.filter_by(email=request_body["email"]).first()
+
+    if user is None:
+        return jsonify({"msg":"usuario not found"}), 404
+    
+    if bcrypt.checkpw(request_body['password'].encode(), user.password.encode()):
+
+        return jsonify({"msg": "inicio correctamente"}) 
+    else:
+        return jsonify({"msg": "contraseña o email no válidos"}), 404
