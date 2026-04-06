@@ -6,6 +6,7 @@ from api.models import db, User
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 import bcrypt
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 api = Blueprint('api', __name__)
 
@@ -27,6 +28,10 @@ def handle_hello():
 @api.route('/register', methods=["POST"])
 def register():
     request_body = request.get_json()
+
+    existing_user = User.query.filter_by(email=request_body["email"]).first()
+    if existing_user:
+        return jsonify({"msg": "El email ya está registrado"}), 400
 
     # converting password to array of bytes
     bytes = request_body["password"].encode('utf-8')
@@ -63,7 +68,20 @@ def login():
         return jsonify({"msg":"usuario not found"}), 404
     
     if bcrypt.checkpw(request_body['password'].encode(), user.password.encode()):
-
-        return jsonify({"msg": "inicio correctamente"}) 
+        token = create_access_token(identity=str(user.id))
+        return jsonify({"token": token}), 200
     else:
-        return jsonify({"msg": "contraseña o email no válidos"}), 404
+        return jsonify({"msg": "contraseña o email no válidos"}), 401
+    
+
+# Ruta privada protegida con JWT
+@api.route('/private', methods=["GET"])
+@jwt_required()
+def private():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if user is None:
+        return jsonify({"msg": "Usuario no encontrado"}), 404
+
+    return jsonify({"msg": "Acceso permitido", "user": user.serialize()}), 200
